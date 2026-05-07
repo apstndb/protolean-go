@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -277,7 +278,13 @@ func encodeObject(obj map[string]Value, path string, indent int) ([]string, erro
 
 func encodeObjectDotFlatten(obj map[string]Value, prefix string) ([]string, error) {
 	var lines []string
-	for key, val := range obj {
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		val := obj[key]
 		if err := validateKey(key); err != nil {
 			return nil, err
 		}
@@ -298,7 +305,13 @@ func encodeObjectBlock(obj map[string]Value, path string, indent int) ([]string,
 		indent++
 		pad = strings.Repeat("  ", indent)
 	}
-	for key, val := range obj {
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		val := obj[key]
 		if err := validateKey(key); err != nil {
 			return nil, err
 		}
@@ -344,6 +357,7 @@ func encodeArray(arr []Value, path string, indent int) ([]string, error) {
 			}
 			fields = append(fields, k)
 		}
+		sort.Strings(fields)
 		lines := []string{fmt.Sprintf("%s%s[%d]:%s", pad, prefix, len(arr), strings.Join(fields, "\t"))}
 		for _, row := range arr {
 			obj := row.(map[string]Value)
@@ -399,6 +413,7 @@ func encodeArray(arr []Value, path string, indent int) ([]string, error) {
 		}
 
 		if len(sharedKeys) > 0 {
+			sort.Strings(sharedKeys)
 			for _, k := range sharedKeys {
 				if err := validateKey(k); err != nil {
 					return nil, err
@@ -416,14 +431,19 @@ func encodeArray(arr []Value, path string, indent int) ([]string, error) {
 				for i, k := range sharedKeys {
 					factored[i] = cellEncode(obj[k])
 				}
-				var remaining []string
-				for k, v := range obj {
+				var remainingKeys []string
+				for k := range obj {
 					if _, ok := sharedSet[k]; !ok {
-						if err := validateKey(k); err != nil {
-							return nil, err
-						}
-						remaining = append(remaining, fmt.Sprintf("%s:%s", k, cellEncode(v)))
+						remainingKeys = append(remainingKeys, k)
 					}
+				}
+				sort.Strings(remainingKeys)
+				var remaining []string
+				for _, k := range remainingKeys {
+					if err := validateKey(k); err != nil {
+						return nil, err
+					}
+					remaining = append(remaining, fmt.Sprintf("%s:%s", k, cellEncode(obj[k])))
 				}
 				cells := append(factored, remaining...)
 				semiLines = append(semiLines, fmt.Sprintf("%s  %s", pad, strings.Join(cells, "\t")))
@@ -491,20 +511,14 @@ func encodeListItem(item Value, indent int) ([]string, error) {
 		return nil, fmt.Errorf("lean: unsupported list item type %T", item)
 	}
 
-	entries := make([][2]string, 0, len(obj))
-	for k, v := range obj {
-		entries = append(entries, [2]string{k, ""})
-		_ = v
-	}
-	if len(entries) == 0 {
-		return []string{fmt.Sprintf("%s- {}", pad)}, nil
-	}
-
-	// Use sorted keys for deterministic output
 	var keys []string
 	for k := range obj {
 		keys = append(keys, k)
 	}
+	if len(keys) == 0 {
+		return []string{fmt.Sprintf("%s- {}", pad)}, nil
+	}
+	sort.Strings(keys)
 
 	firstKey := keys[0]
 	firstVal := obj[firstKey]
