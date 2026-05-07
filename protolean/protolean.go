@@ -178,7 +178,7 @@ func (o MarshalOptions) marshalMap(fd protoreflect.FieldDescriptor, m protorefle
 			rangeErr = err
 			return false
 		}
-		result[k.String()] = val
+		result[leanSafeKey(k.String())] = val
 		return true
 	})
 	if rangeErr != nil {
@@ -239,7 +239,7 @@ func (o MarshalOptions) marshalStruct(pm protoreflect.Message) (map[string]any, 
 		if err != nil {
 			return nil, err
 		}
-		result[k] = val
+		result[leanSafeKey(k)] = val
 	}
 	return result, nil
 }
